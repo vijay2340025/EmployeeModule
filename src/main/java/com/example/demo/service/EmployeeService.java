@@ -5,13 +5,16 @@ import com.example.demo.dto.EmployeeDTO;
 import com.example.demo.model.Employee;
 import com.example.demo.repository.EmployeeRepo;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.cloud.client.ServiceInstance;
+import org.springframework.cloud.client.discovery.DiscoveryClient;
+import org.springframework.cloud.client.loadbalancer.LoadBalancerClient;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -20,16 +23,15 @@ public class EmployeeService {
     @Autowired
     EmployeeRepo employeeRepo;
 
-    static RestTemplateBuilder restTemplateBuilder;
-
-    static String uri;
+    @Autowired
+    @Lazy
+    DiscoveryClient discoveryClient;
 
     @Autowired
-    EmployeeService(RestTemplateBuilder restTemplateBuilder,
-                    @Value("${address-service.root.uri}") String uri) {
-        EmployeeService.restTemplateBuilder = restTemplateBuilder;
-        EmployeeService.uri = uri;
-    }
+    LoadBalancerClient loadBalancerClient;
+
+    @Autowired
+    RestTemplateBuilder builder;
 
     public ResponseEntity<EmployeeDTO> fetchEmployee(int id) {
         Optional<Employee> employee = employeeRepo.findById(id);
@@ -41,7 +43,7 @@ public class EmployeeService {
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body(new EmployeeDTO());
     }
 
-    private static EmployeeDTO mapEmployeeResponse(Employee res) {
+    private EmployeeDTO mapEmployeeResponse(Employee res) {
         EmployeeDTO employeeDTO = new EmployeeDTO();
         AddressDTO addressDTO = new AddressDTO();
 
@@ -51,8 +53,9 @@ public class EmployeeService {
         employeeDTO.setDob(res.getDob());
 
         try {
-            RestTemplate restTemplate = restTemplateBuilder.rootUri(uri + "/address-app").build();
-            addressDTO = restTemplate.getForObject("/address/{id}", AddressDTO.class, res.getId());
+            ServiceInstance serviceInstance = loadBalancerClient.choose("ADDRESS-SERVICE");
+            String uri = serviceInstance.getUri().toString();
+            addressDTO = builder.build().getForObject(uri + "/AddressClient/rpc/v1/address/12", AddressDTO.class);
         } catch (Exception ex) {
             ex.printStackTrace();
         }
