@@ -6,7 +6,6 @@ import com.example.demo.model.Employee;
 import com.example.demo.repository.EmployeeRepo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.web.client.RestTemplateBuilder;
-import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.cloud.client.loadbalancer.LoadBalancerClient;
 import org.springframework.context.annotation.Lazy;
@@ -14,7 +13,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -32,6 +30,9 @@ public class EmployeeService {
 
     @Autowired
     RestTemplateBuilder builder;
+
+    @Autowired
+    private AddressFeignService addressFeignService;
 
     public ResponseEntity<EmployeeDTO> fetchEmployee(int id) {
         Optional<Employee> employee = employeeRepo.findById(id);
@@ -53,9 +54,10 @@ public class EmployeeService {
         employeeDTO.setDob(res.getDob());
 
         try {
-            ServiceInstance serviceInstance = loadBalancerClient.choose("ADDRESS-SERVICE");
+            /*ServiceInstance serviceInstance = loadBalancerClient.choose("ADDRESS-SERVICE");
             String uri = serviceInstance.getUri().toString();
-            addressDTO = builder.build().getForObject(uri + "/AddressClient/rpc/v1/address/12", AddressDTO.class);
+            addressDTO = builder.build().getForObject(uri + "/AddressClient/rpc/v1/address/12", AddressDTO.class);*/
+            addressDTO = addressFeignService.getAddressById(12);
         } catch (Exception ex) {
             ex.printStackTrace();
         }
